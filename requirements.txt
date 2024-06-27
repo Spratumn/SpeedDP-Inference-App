@@ -1,0 +1,6 @@
+pycryptodome
+numpy
+opencv-python
+torch
+torchvision
+safetensors
