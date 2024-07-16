@@ -563,14 +563,14 @@ def create_augmenters_from_settings(settings):
     return augmenters
 
 
-def save_settings(filepath, settings, aes_key=b'VIZVISIONSPEEDDP'):
+def save_settings(filepath, settings, aes_key=b'SPEEDDPHF1234567'):
     cipher = AES.new(aes_key, AES.MODE_CBC, aes_key)
     encrypt_data = cipher.encrypt(pad(str(settings).encode('utf-8'), 16))
     with open(filepath, 'wb') as f:
         f.write(encrypt_data)
 
 
-def load_settings(filepath, aes_key=b'VIZVISIONSPEEDDP'):
+def load_settings(filepath, aes_key=b'SPEEDDPHF1234567'):
     with open(filepath, 'rb') as f:
         enc_data = f.read()
     cipher = AES.new(aes_key, AES.MODE_CBC, aes_key)

@@ -4,6 +4,7 @@ from libs.api.detect import Detector
 
 
 PRJ_ROOT_DIR = './Projects'
+CACHE_DIR = './.cache'
 INFO_LINES = """
     ## This App is running on a huggingface free server.
     ## user guide:
@@ -14,7 +15,7 @@ INFO_LINES = """
     5. click **Predict** button;
 """
 
-detector = Detector()
+detector = Detector(CACHE_DIR)
 
 def run_detection(prjname, expname, score_thresh, iou_thresh, image):
     if prjname is None:

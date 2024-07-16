@@ -1,5 +1,6 @@
 import os
 import cv2
+import time
 import numpy as np
 
 import json
@@ -9,6 +10,7 @@ from huggingface_hub import split_torch_state_dict_into_shards
 from libs.common.config import get_colormap
 from libs.models.creator import create_predictor
 from libs.common.config import make_project_config, load_settings
+
 
 
 
@@ -73,8 +75,9 @@ def save_state_dict(state_dict, save_directory: str):
 
 
 class Detector:
-    def __init__(self):
-        pass
+    def __init__(self, cache_dir):
+        self.cache_dir = cache_dir
+        if not os.path.exists(self.cache_dir): os.mkdir(cache_dir)
 
     def init(self, workdir, epxname, score_thresh=0.5, iou_thresh=0.5):
         settings = load_settings(os.path.join(workdir, '.prj'))
@@ -98,3 +101,19 @@ class Detector:
                             draw_label, draw_score, cate_ids)
 
 
+    def predict_video(self, video, draw_label=True, draw_score=True, cate_ids=-1):
+        result_name = f'{time.time()}.mp4'
+        vc = cv2.VideoCapture(video)
+        frames = [vc.read()[1] for _ in range(int(vc.get(7)))]
+        for i, frame in enumerate(frames):
+            dets = self.predictor.predict(frame)[0]
+            frames[i] = draw_results(frame, dets, self.catenames, self.colormaps,
+                                     draw_label, draw_score, cate_ids)
+
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        output_video = cv2.VideoWriter(os.path.join(self.cache_dir, result_name),
+                                       fourcc, 30, (frames[0].shape[1], frames[0].shape[0]))
+        for frame in frames:
+            output_video.write(frame)
+        output_video.release()
+        return result_name
