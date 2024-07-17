@@ -4,7 +4,7 @@ import argparse
 
 
 sys.path.append('../..')
-from libs.common.config import load_settings, save_settings
+from spdp.common.config import load_settings, save_settings
 
 
 parser = argparse.ArgumentParser(description='')
