@@ -70,7 +70,7 @@ def detect_image(prjname, expname, score_thresh, iou_thresh, draw_score, draw_la
         result_image = detector.predict_image(image_np,
                                               draw_label=draw_label,
                                               draw_score=draw_score)
-    return Image.fromarray(cv2.cvtColor(result_image, cv2.COLOR_BGR2RGB)), 'done'
+    return Image.fromarray(cv2.cvtColor(result_image, cv2.COLOR_BGR2RGB))
 
 
 def detect_video(prjname, expname, score_thresh,
@@ -94,5 +94,5 @@ def detect_video(prjname, expname, score_thresh,
                                draw_score=draw_score,
                                rgb_input=rgb_input,
                                result_path=result_video_path)
-        return result_video_path, 'done'
+        return result_video_path
 

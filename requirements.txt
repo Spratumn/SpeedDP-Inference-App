@@ -4,5 +4,4 @@ opencv-python
 torch
 torchvision
 safetensors
-streamlit
 moviepy
