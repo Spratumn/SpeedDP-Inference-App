@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 from io import BytesIO
 from PIL import Image
@@ -6,9 +7,50 @@ import streamlit as st
 import cv2
 import numpy as np
 
-
-from .main import TMP_DIR, PROJECT_DIR
 from spdp.api.detect import Detector
+from spdp.common.config import load_settings
+
+TMP_DIR = '.cache'
+PROJECT_DIR = './Projects'
+
+
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == st.secrets["password"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.text_input("Password", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input("Password", type="password", on_change=password_entered, key="password")
+        st.error("😕 Password incorrect")
+        return False
+    else:
+        return True
+
+
+def get_project_info(project_name):
+    prj_settings = load_settings(os.path.join(PROJECT_DIR, project_name, '.prj'))
+    return {
+        '任务类型': prj_settings['task_type'],
+        '图像类型': prj_settings['image_type'],
+        '目标类别': [catename for catename in prj_settings['category_info'].keys()]
+    }
+
+
+
+def get_exp_info(project_name, exp_name):
+    exp_settings = load_settings(os.path.join(PROJECT_DIR, project_name, exp_name, '.train'))
+    return {
+        '模型类型': exp_settings['model_type'],
+        '训练尺寸': f"[{exp_settings['inputsize'][0]}, {exp_settings['inputsize'][1]}]",
+        '量化训练': '是' if exp_settings['qscheme'] else '否'
+    }
+
 
 
 def convert_image(image:Image):
