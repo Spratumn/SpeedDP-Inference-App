@@ -3,7 +3,7 @@ import streamlit as st
 from PIL import Image
 import shutil
 
-from utils import PROJECT_DIR, detect_image, detect_video, convert_image, get_project_info, get_exp_info
+from utils import PROJECT_DIR, detect_image, detect_video, get_project_info, get_exp_info
 
 
 st.set_page_config(
