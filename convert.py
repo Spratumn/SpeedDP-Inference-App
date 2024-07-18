@@ -3,7 +3,7 @@ import sys
 import argparse
 
 
-sys.path.append('../..')
+
 from spdp.common.config import load_settings, save_settings
 
 
@@ -20,7 +20,8 @@ def convert_settings(filepath, aes_key):
                       load_settings(filepath, aes_key=bytes(aes_key, encoding='utf8')),
                       aes_key=b'SPEEDDPHF1234567')
         print(f'convert succeed with {filepath}')
-    except:
+    except Exception as e:
+        print(e)
         print(f'convert failed with {filepath}')
 
 def convert(workdir, aes_key):

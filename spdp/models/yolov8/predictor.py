@@ -10,6 +10,7 @@ from .model import YOLOV8
 
 from spdp.common.dataset import Instance, create_augmenters
 from spdp.common.config import load_settings
+from ..module import process_compiled_checkpoint
 
 
 
@@ -42,6 +43,7 @@ class Predictor(object):
                 checkpoint = torch.load(pt_model_path)
             else:
                 checkpoint = torch.load(pt_model_path, map_location=torch.device('cpu'))
+            process_compiled_checkpoint(checkpoint)
         self.model.load_state_dict(checkpoint)
         self.model.set_device(self.device)
         self.model.eval()

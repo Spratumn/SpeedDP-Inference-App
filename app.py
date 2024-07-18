@@ -48,7 +48,8 @@ def project_changed():
 
 
 def exp_changed():
-    st.session_state.config['exp_info'] = get_exp_info(st.session_state.project_name, exps[0])
+    st.session_state.config['exp_info'] = get_exp_info(st.session_state.project_name,
+                                                       st.session_state.exp_name)
 
 
 st.title(":mag_right: 目标检测与分割")
