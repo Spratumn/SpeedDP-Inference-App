@@ -6,6 +6,16 @@ import shutil
 from utils import PROJECT_DIR, detect_images, detect_video, get_project_info, get_exp_info
 
 
+INFO_LINES = """
+    ## User guide:
+    1. select project from **Projects**;
+    2. select experiment from **Experiments**;
+    3. set **Score thresh**, **IOU thresh** and other settings;
+    4. select and upload source file(s);
+    5. click **Predict** button;
+"""
+
+
 st.set_page_config(
     page_title="SpeedDPHF",
     page_icon="🧊",
@@ -19,8 +29,10 @@ st.set_page_config(
 )
 
 
+if 'video' not in st.session_state: st.session_state.video = None
+if 'video_result' not in st.session_state: st.session_state.video_result = []
 if 'images' not in st.session_state: st.session_state.images = []
-if 'results' not in st.session_state: st.session_state.results = []
+if 'images_result' not in st.session_state: st.session_state.images_result = []
 if 'image_idx' not in st.session_state: st.session_state.image_idx = 0
 if 'config' not in st.session_state:
     prj = os.listdir(PROJECT_DIR)[0]
@@ -59,33 +71,35 @@ def image_idx_minus():
     if st.session_state.image_idx > 0: st.session_state.image_idx -= 1
 
 
-st.subheader(':gear: 配置参数')
+st.markdown(INFO_LINES)
+
+st.subheader(':gear: Settings')
 c11, c12 = st.columns(2)
 with c11:
     c111, c112 = st.columns(2)
     with c111:
-        project_name = st.selectbox('项目:',
+        project_name = st.selectbox('Projects:',
                                     tuple(os.listdir(PROJECT_DIR)),
                                     index=0,
                                     on_change=project_changed,
                                     key='project_name')
     with c112:
-        exp_name = st.selectbox('试验:',
+        exp_name = st.selectbox('Experiments:',
                                 tuple(st.session_state.config['exps']),
                                 index=0,
                                 on_change=exp_changed,
                                 key='exp_name')
     c121, c122 = st.columns(2)
     with c121:
-        score_thresh = st.slider('目标置信度:', 0.1, 1.0, 0.5, step=0.05)
+        score_thresh = st.slider('Score thresh:', 0.1, 1.0, 0.5, step=0.05)
 
     with c122:
-        iou_thresh = st.slider('IOU阈值:', 0.1, 1.0, 0.5, step=0.05)
+        iou_thresh = st.slider('IOU thresh:', 0.1, 1.0, 0.5, step=0.05)
     c131, c132, c133, _ = st.columns(4)
     with c131:
-        draw_label = st.checkbox('绘制目标标签', True)
+        draw_label = st.checkbox('Draw class name', True)
     with c132:
-        draw_score = st.checkbox('绘制置信度', True)
+        draw_score = st.checkbox('Draw score', True)
     with c133:
         rgb_input = st.checkbox('RGB input', False)
 
@@ -93,32 +107,37 @@ with c12:
     c121, c122 = st.columns(2)
     with c121:
         prj_info = st.session_state.config['prj_info']
-        st.write(f"任务类型: {prj_info['任务类型']}")
-        st.write(f"图像类型: {prj_info['图像类型']}")
-        st.write(f"目标数量: {len(prj_info['目标类别'])}")
-        with st.expander("目标类别信息:"):
-            st.write('#' + ' #'.join(prj_info['目标类别']))
+        st.write(f"Task Type: {prj_info['task_type']}")
+        st.write(f"Image Type: {prj_info['image_type']}")
+        st.write(f"Class Num: {len(prj_info['catenames'])}")
     with c122:
         exp_info = st.session_state.config['exp_info']
-        st.write(f"模型类型: {exp_info['模型类型']}")
-        st.write(f"训练尺寸: {exp_info['训练尺寸']}")
-        st.write(f"量化训练: {exp_info['量化训练']}")
+        st.write(f"Model Type: {exp_info['model_type']}")
+        st.write(f"Train Insize: {exp_info['inputsize']}")
+        st.write(f"Train Qat: {exp_info['qat']}")
+    with st.expander("Class Names:"):
+        st.write('#' + ' #'.join(prj_info['catenames']))
 
 
-st.subheader(':gear: 运行推理')
-tab_image, tab_video = st.tabs(["图像文件", "视频文件"])
+st.subheader(':gear: Predict')
+tab_image, tab_video = st.tabs(["Image", "Video"])
 
 with tab_image:
     image_col1, img_bt_col, image_col2 = st.columns([14, 2, 14])
     with st.form(key='tab_image', clear_on_submit=True):
-        images_upload = st.file_uploader("上传图像", type=["png", "jpg", "jpeg"],
-                                        label_visibility='hidden',
-                                        accept_multiple_files=True)
-        images_submitted = st.form_submit_button("上传选择的文件")
-        if images_submitted and len(images_upload):
+        image_upload_c1, image_upload_c2 = st.columns([12, 1])
+        with image_upload_c1:
+            images_upload = st.file_uploader("Select image", type=["png", "jpg", "jpeg"],
+                                            label_visibility='hidden',
+                                            accept_multiple_files=True)
+        with image_upload_c2:
+            st.write('\n')
+            st.write('\n')
+            images_submitted = st.form_submit_button("Upload selected files")
+        if len(images_upload) and images_submitted:
             st.session_state.image_idx = 0
             st.session_state.images.clear()
-            st.session_state.results.clear()
+            st.session_state.images_result.clear()
             for image_upload in images_upload:
                 if images_upload is None: continue
                 st.session_state.images.append(Image.open(image_upload))
@@ -130,12 +149,16 @@ with tab_image:
             st.write('\n')
             st.write('\n')
             st.write('\n')
-        img_bt_col.button(label='上一张', on_click=image_idx_minus, use_container_width=True)
-        img_bt_col.button(label='下一张', on_click=image_idx_plus, use_container_width=True)
-        if img_bt_col.button("运行推理", use_container_width=True):
-            with img_bt_col:
-                with st.spinner('...'):
-                    st.session_state.results = detect_images(project_name, exp_name,
+        img_bt_col.button(label='last', on_click=image_idx_minus, use_container_width=True)
+        img_bt_col.write('\n')
+        img_bt_col.write('\n')
+        img_bt_col.write('\n')
+        img_bt_col.button(label='next', on_click=image_idx_plus, use_container_width=True)
+        img_bt_c21, img_bt_c22 = st.columns([1, 12])
+        if img_bt_c21.button("Predict", use_container_width=True):
+            with img_bt_c22:
+                with st.spinner('Running Detection with the given images...'):
+                    st.session_state.images_result = detect_images(project_name, exp_name,
                                                             score_thresh, iou_thresh,
                                                             draw_score, draw_label,
                                                             rgb_input,
@@ -143,39 +166,48 @@ with tab_image:
 
         st.session_state.image_idx = min(st.session_state.image_idx, len(st.session_state.images) - 1)
         image_col1.image(st.session_state.images[st.session_state.image_idx], width=800)
-        if len(st.session_state.results):
-            image_col2.image(st.session_state.results[st.session_state.image_idx], width=800)
+        if len(st.session_state.images_result):
+            image_col2.image(st.session_state.images_result[st.session_state.image_idx], width=800)
 
 
 with tab_video:
     video_col11, video_col12 = st.columns(2)
-    video_upload = st.file_uploader("上传视频", type=["mp4",], label_visibility='hidden')
-    if video_upload is not None:
-        video_col11.video(video_upload.read(), autoplay=True)
+    with st.form(key='tab_video', clear_on_submit=True):
+        video_upload_c1, video_upload_c2 = st.columns([12, 1])
+        with video_upload_c1:
+            video_upload = st.file_uploader("Select video", type=["mp4",], label_visibility='hidden')
+        with video_upload_c2:
+            st.write('\n')
+            st.write('\n')
+            video_submitted = st.form_submit_button("Upload selected file")
+        if video_upload is not None and video_submitted:
+            st.session_state.video = video_upload.read()
+            st.session_state.video_result = None
+    if st.session_state.video is not None:
+        video_col11.video(st.session_state.video, autoplay=True)
         video_col21, video_col22, video_col23 = st.columns([1, 1, 10])
         with video_col21:
-            frame_num = st.number_input('视频帧数 :', max_value=5000, min_value=-1, value=50)
+            frame_num = st.number_input('frame num:', max_value=5000, min_value=-1, value=50)
         with video_col22:
             st.write('\n')
             st.write('\n')
-        if video_col22.button("运行推理"):
-            if video_upload is not None:
-                with video_col23:
-                    st.write('\n')
-                    st.write('\n')
-                    with st.spinner('Running Detection with the given video...'):
-                        result_video_path = detect_video(project_name, exp_name,
-                                                        score_thresh, iou_thresh,
-                                                        draw_score, draw_label,
-                                                        rgb_input, frame_num, video_upload)
+        if video_col22.button("Predict"):
+            with video_col23:
+                st.write('\n')
+                st.write('\n')
+                with st.spinner('Running Detection with the given video...'):
+                    result_video_path = detect_video(project_name, exp_name,
+                                                    score_thresh, iou_thresh,
+                                                    draw_score, draw_label,
+                                                    rgb_input, frame_num,
+                                                    st.session_state.video)
                 if not os.path.exists(result_video_path):
-                    with video_col23:
-                        st.error('Run detection error!')
+                    st.error('Run detection error!')
                 else:
                     with open(result_video_path, 'rb') as f:
-                        video_data = f.read()
-                    video_col12.video(video_data, autoplay=True)
+                        st.session_state.video_result = f.read()
                     shutil.rmtree(os.path.dirname(result_video_path))
-
+        if st.session_state.video_result is not None:
+            video_col12.video(st.session_state.video_result, autoplay=True)
 
 

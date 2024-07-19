@@ -36,9 +36,9 @@ def check_password():
 def get_project_info(project_name):
     prj_settings = load_settings(os.path.join(PROJECT_DIR, project_name, '.prj'))
     return {
-        '任务类型': prj_settings['task_type'],
-        '图像类型': prj_settings['image_type'],
-        '目标类别': [catename for catename in prj_settings['category_info'].keys()]
+        'task_type': prj_settings['task_type'],
+        'image_type': prj_settings['image_type'],
+        'catenames': [catename for catename in prj_settings['category_info'].keys()]
     }
 
 
@@ -46,9 +46,9 @@ def get_project_info(project_name):
 def get_exp_info(project_name, exp_name):
     exp_settings = load_settings(os.path.join(PROJECT_DIR, project_name, exp_name, '.train'))
     return {
-        '模型类型': exp_settings['model_type'],
-        '训练尺寸': f"[{exp_settings['inputsize'][0]}, {exp_settings['inputsize'][1]}]",
-        '量化训练': '是' if exp_settings['qscheme'] else '否'
+        'model_type': exp_settings['model_type'],
+        'inputsize': f"[{exp_settings['inputsize'][0]}, {exp_settings['inputsize'][1]}]",
+        'qat': 'True' if exp_settings['qscheme'] else 'False'
     }
 
 
@@ -84,11 +84,10 @@ def detect_video(prjname, expname, score_thresh,
     detector.init(os.path.join(PROJECT_DIR, prjname), expname, score_thresh, iou_thresh)
     cur_video_dir = os.path.join(TMP_DIR, time_uid)
     if not os.path.exists(cur_video_dir): os.mkdir(cur_video_dir)
-    video_path = os.path.join(cur_video_dir, video.name)
-    byte_video = video.getvalue()
+    video_path = os.path.join(cur_video_dir, 'source.mp4')
     with open(video_path, 'wb') as f:
-        f.write(byte_video)
-    result_video_path = os.path.join(cur_video_dir, f'{video.name}-det.mp4')
+        f.write(video)
+    result_video_path = os.path.join(cur_video_dir, f'result.mp4')
     detector.predict_video(video_path, frame_num=det_num,
                             draw_label=draw_label,
                             draw_score=draw_score,

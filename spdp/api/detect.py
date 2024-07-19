@@ -49,7 +49,7 @@ def draw_results(image, dets, catenames, colormaps, draw_label=False, draw_score
                             txt_bg_color, -1)
                 cv2.putText(draw_image, text, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.4, txt_color, thickness=1)
     if draw_mask:
-        draw_image = cv2.addWeighted(draw_image, 0.7, mask_image, 0.3, 0)
+        draw_image = cv2.addWeighted(draw_image, 1, mask_image, 0.3, 0)
     cv2.putText(draw_image, str(target_num), (10, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), thickness=1)
     return draw_image
 
