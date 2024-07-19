@@ -3,7 +3,7 @@ import streamlit as st
 from PIL import Image
 import shutil
 
-from utils import PROJECT_DIR, detect_image, detect_video, get_project_info, get_exp_info
+from utils import PROJECT_DIR, detect_images, detect_video, get_project_info, get_exp_info
 
 
 st.set_page_config(
@@ -19,21 +19,21 @@ st.set_page_config(
 )
 
 
+if 'images' not in st.session_state: st.session_state.images = []
+if 'results' not in st.session_state: st.session_state.results = []
+if 'image_idx' not in st.session_state: st.session_state.image_idx = 0
 if 'config' not in st.session_state:
     prj = os.listdir(PROJECT_DIR)[0]
     exps = [
             exp for exp in os.listdir(os.path.join(PROJECT_DIR, prj))
             if os.path.isdir(os.path.join(PROJECT_DIR, prj, exp))
         ]
-
-
     st.session_state.config = {
         'prj': prj,
         'exps': exps,
         'prj_info': get_project_info(prj),
         'exp_info': get_exp_info(prj, exps[0])
     }
-
 
 
 def project_changed():
@@ -51,19 +51,24 @@ def exp_changed():
     st.session_state.config['exp_info'] = get_exp_info(st.session_state.project_name,
                                                        st.session_state.exp_name)
 
+def image_idx_plus():
+    st.session_state.image_idx += 1
 
-st.title(":mag_right: 目标检测与分割")
-st.subheader(':gear: 参数配置')
 
+def image_idx_minus():
+    if st.session_state.image_idx > 0: st.session_state.image_idx -= 1
+
+
+st.subheader(':gear: 配置参数')
 c11, c12 = st.columns(2)
 with c11:
     c111, c112 = st.columns(2)
     with c111:
         project_name = st.selectbox('项目:',
-                                tuple(os.listdir(PROJECT_DIR)),
-                                index=0,
-                                on_change=project_changed,
-                                key='project_name')
+                                    tuple(os.listdir(PROJECT_DIR)),
+                                    index=0,
+                                    on_change=project_changed,
+                                    key='project_name')
     with c112:
         exp_name = st.selectbox('试验:',
                                 tuple(st.session_state.config['exps']),
@@ -75,7 +80,7 @@ with c11:
         score_thresh = st.slider('目标置信度:', 0.1, 1.0, 0.5, step=0.05)
 
     with c122:
-        iou_thresh = st.slider('IOU阈值:', 0.3, 1.0, 0.5, step=0.05)
+        iou_thresh = st.slider('IOU阈值:', 0.1, 1.0, 0.5, step=0.05)
     c131, c132, c133, _ = st.columns(4)
     with c131:
         draw_label = st.checkbox('绘制目标标签', True)
@@ -100,65 +105,77 @@ with c12:
         st.write(f"量化训练: {exp_info['量化训练']}")
 
 
-st.subheader(':film_frames: 单图像目标检测')
-st.write(
-    "选择并上传一张图像，运行目标检测任务."
-)
-detect_succeed = False
-image_col1, image_col2 = st.columns(2)
-image_upload = st.file_uploader("上传一张图像", type=["png", "jpg", "jpeg"], label_visibility='hidden')
-if image_upload is not None:
-    image = Image.open(image_upload)
-    image_col1.write("原图:")
-    image_col1.image(image)
-else:
-    image = None
-image_c2, image_c3 = st.columns(2)
-with image_c2:
-    if st.button("图像检测 :point_left:"):
-        if image_upload is not None:
-            result_image = detect_image(project_name, exp_name,
-                                        score_thresh, iou_thresh,
-                                        draw_score, draw_label,
-                                        rgb_input, image)
-            if result_image is not None:
-                image_col2.write("检测结果:")
-                image_col2.image(result_image)
-                detect_succeed = True
-        else:
-            st.error('请先上传一张图像，然后再点击 “运行单图像检测” 按钮')
+st.subheader(':gear: 运行推理')
+tab_image, tab_video = st.tabs(["图像文件", "视频文件"])
+
+with tab_image:
+    image_col1, img_bt_col, image_col2 = st.columns([14, 2, 14])
+    with st.form(key='tab_image', clear_on_submit=True):
+        images_upload = st.file_uploader("上传图像", type=["png", "jpg", "jpeg"],
+                                        label_visibility='hidden',
+                                        accept_multiple_files=True)
+        images_submitted = st.form_submit_button("上传选择的文件")
+        if images_submitted and len(images_upload):
+            st.session_state.image_idx = 0
+            st.session_state.images.clear()
+            st.session_state.results.clear()
+            for image_upload in images_upload:
+                if images_upload is None: continue
+                st.session_state.images.append(Image.open(image_upload))
+
+    if len(st.session_state.images):
+        with img_bt_col:
+            st.write('\n')
+            st.write('\n')
+            st.write('\n')
+            st.write('\n')
+            st.write('\n')
+        img_bt_col.button(label='上一张', on_click=image_idx_minus, use_container_width=True)
+        img_bt_col.button(label='下一张', on_click=image_idx_plus, use_container_width=True)
+        if img_bt_col.button("运行推理", use_container_width=True):
+            with img_bt_col:
+                with st.spinner('...'):
+                    st.session_state.results = detect_images(project_name, exp_name,
+                                                            score_thresh, iou_thresh,
+                                                            draw_score, draw_label,
+                                                            rgb_input,
+                                                            st.session_state.images)
+
+        st.session_state.image_idx = min(st.session_state.image_idx, len(st.session_state.images) - 1)
+        image_col1.image(st.session_state.images[st.session_state.image_idx], width=800)
+        if len(st.session_state.results):
+            image_col2.image(st.session_state.results[st.session_state.image_idx], width=800)
 
 
-st.subheader(':camera: 视频帧检测')
-st.write(
-    "选择并上传一个mp4格式的视频文件,然后逐帧做目标检测"
-)
-video_det_num = st.number_input('运行目标检测的视频帧数 :', max_value=5000, min_value=-1, value=-1)
-video_col1, video_col2 = st.columns(2)
-video_upload = st.file_uploader("上传视频", type=["mp4",], label_visibility='hidden')
-if video_upload is not None:
-    video_col1.write("原视频:")
-    video_col1.video(video_upload.read())
-video_data = None
-video_c2, _, video_c3, _ = st.columns([2, 2, 2, 2])
-with video_c2:
-    if st.button("视频检测 :point_left:"):
-        if video_upload is not None:
-            result_video_path = detect_video(project_name, exp_name,
-                                            score_thresh, iou_thresh,
-                                            draw_score, draw_label,
-                                            rgb_input, video_det_num,
-                                            video_upload)
-            if not os.path.exists(result_video_path):
-                st.error('Run detection error!')
-            else:
-                with open(result_video_path, 'rb') as f:
-                    video_data = f.read()
-                video_col2.write("检测结果:")
-                video_col2.video(video_data)
-                shutil.rmtree(os.path.dirname(result_video_path))
-        else:
-            st.error('请先上传一个视频，然后再点击 “运行视频帧检测” 按钮')
+with tab_video:
+    video_col11, video_col12 = st.columns(2)
+    video_upload = st.file_uploader("上传视频", type=["mp4",], label_visibility='hidden')
+    if video_upload is not None:
+        video_col11.video(video_upload.read(), autoplay=True)
+        video_col21, video_col22, video_col23 = st.columns([1, 1, 10])
+        with video_col21:
+            frame_num = st.number_input('视频帧数 :', max_value=5000, min_value=-1, value=50)
+        with video_col22:
+            st.write('\n')
+            st.write('\n')
+        if video_col22.button("运行推理"):
+            if video_upload is not None:
+                with video_col23:
+                    st.write('\n')
+                    st.write('\n')
+                    with st.spinner('Running Detection with the given video...'):
+                        result_video_path = detect_video(project_name, exp_name,
+                                                        score_thresh, iou_thresh,
+                                                        draw_score, draw_label,
+                                                        rgb_input, frame_num, video_upload)
+                if not os.path.exists(result_video_path):
+                    with video_col23:
+                        st.error('Run detection error!')
+                else:
+                    with open(result_video_path, 'rb') as f:
+                        video_data = f.read()
+                    video_col12.video(video_data, autoplay=True)
+                    shutil.rmtree(os.path.dirname(result_video_path))
 
 
 
