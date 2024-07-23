@@ -67,7 +67,7 @@ def convert_image(image:Image):
 
 def detect_images(prjname, expname, inputsize,
                   score_thresh, iou_thresh,
-                  draw_score, draw_label,
+                  draw_score, draw_label, line_width,
                   rgb_input,
                   images:Image):
     detector = Detector(TMP_DIR)
@@ -79,14 +79,15 @@ def detect_images(prjname, expname, inputsize,
             image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
         result_image = detector.predict_image(image_np,
                                             draw_label=draw_label,
-                                            draw_score=draw_score)
+                                            draw_score=draw_score,
+                                            line_width=line_width,)
         results.append(Image.fromarray(cv2.cvtColor(result_image, cv2.COLOR_BGR2RGB)))
     return results
 
 
 def detect_video(prjname, expname, inputsize,
                  score_thresh, iou_thresh,
-                 draw_score, draw_label,
+                 draw_score, draw_label, line_width,
                  rgb_input,
                  det_num, video):
     time_uid = str(time.time())
@@ -101,6 +102,7 @@ def detect_video(prjname, expname, inputsize,
     detector.predict_video(video_path, frame_num=det_num,
                             draw_label=draw_label,
                             draw_score=draw_score,
+                            line_width=line_width,
                             rgb_input=rgb_input,
                             result_path=result_video_path)
     return result_video_path

@@ -46,7 +46,8 @@ if 'config' not in st.session_state:
         'prj_info': get_project_info(prj),
         'exp_info': get_exp_info(prj, exps[0])
     }
-if 'inputsize' not in st.session_state: st.session_state.inputsize =  get_trainsize(prj, exps[0])
+if 'inputsize_height' not in st.session_state:
+    (st.session_state.inputsize_width, st.session_state.inputsize_height) = get_trainsize(prj, exps[0])
 
 
 def project_changed():
@@ -58,15 +59,16 @@ def project_changed():
     st.session_state.config['prj'] = st.session_state.project_name
     st.session_state.config['prj_info'] = get_project_info(st.session_state.project_name)
     st.session_state.config['exp_info'] = get_exp_info(st.session_state.project_name, exps[0])
+    (st.session_state.inputsize_width, st.session_state.inputsize_height) = get_trainsize(st.session_state.project_name,
+                                                                                          exps[0])
 
 
 def exp_changed():
     st.session_state.config['exp_info'] = get_exp_info(st.session_state.project_name,
                                                        st.session_state.exp_name)
+    (st.session_state.inputsize_width, st.session_state.inputsize_height) = get_trainsize(st.session_state.project_name,
+                                                                                          st.session_state.exp_name)
 
-def diy_inputsize_changed():
-    if st.session_state.diy_inputsize:
-        st.session_state.inputsize = get_trainsize(st.session_state.project_name, st.session_state.exp_name)
 
 def image_idx_plus():
     st.session_state.image_idx += 1
@@ -78,7 +80,7 @@ def image_idx_minus():
 
 st.markdown(INFO_LINES)
 
-st.subheader(':gear: Settings')
+st.subheader('Settings')
 c1, c2 = st.columns(2)
 with c1:
     c111, c112 = st.columns(2)
@@ -94,40 +96,27 @@ with c1:
                                 index=0,
                                 on_change=exp_changed,
                                 key='exp_name')
-    c121, c122 = st.columns(2)
+    c121, c122, c123 = st.columns([1, 1, 2])
     with c121:
-        score_thresh = st.slider('Score thresh:', 0.1, 1.0, 0.5, step=0.05)
+        inputsize_width = st.number_input('Inputsize width:', 320, 960,
+                                          st.session_state.inputsize_width, 32)
     with c122:
-        iou_thresh = st.slider('IOU thresh:', 0.1, 1.0, 0.5, step=0.05)
-
-
-    c131, c132, c133, c134 = st.columns(4)
+        inputsize_height = st.number_input('Inputsize height:', 320, 960,
+                                           st.session_state.inputsize_height, 32)
+    with c123:
+        score_thresh = st.slider('Score thresh:', 0.1, 1.0, 0.5, step=0.05)
+    c131, c132, c133 = st.columns([1, 1, 2])
     with c131:
-        draw_label = st.checkbox('Draw class name', True)
-    with c132:
-        draw_score = st.checkbox('Draw score', True)
+        line_width = st.number_input('Box line width:', max_value=5, min_value=1, value=2)
     with c133:
+        iou_thresh = st.slider('IOU thresh:', 0.1, 1.0, 0.5, step=0.05)
+    c141, c142, c143, c144 = st.columns(4)
+    with c141:
+        draw_label = st.checkbox('Draw class', True)
+    with c142:
+        draw_score = st.checkbox('Draw score', True)
+    with c143:
         rgb_input = st.checkbox('RGB input', False)
-    with c134:
-        diy_inputsize = st.checkbox('Set inputsize', False,
-                                    key='diy_inputsize',
-                                    on_change=diy_inputsize_changed)
-    if diy_inputsize:
-        c141, c142 = st.columns(2)
-        with c141:
-            inputsize_width = st.number_input('Inputsize width:',
-                                            320, 960,
-                                            st.session_state.inputsize[0],
-                                            32,
-                                            )
-        with c142:
-            inputsize_height = st.number_input('Inputsize height:',
-                                            320, 960, st.session_state.inputsize[1], 32,
-                                            )
-        inputsize = [inputsize_width, inputsize_height]
-    else:
-        inputsize = None
-
 
 with c2:
     c21, c22 = st.columns(2)
@@ -145,7 +134,7 @@ with c2:
         st.write('#' + ' #'.join(prj_info['catenames']))
 
 
-st.subheader(':gear: Predict')
+st.subheader('Predict')
 tab_image, tab_video = st.tabs(["Image", "Video"])
 
 with tab_image:
@@ -184,9 +173,11 @@ with tab_image:
         if img_bt_c21.button("Predict", use_container_width=True):
             with img_bt_c22:
                 with st.spinner('Running Detection with the given images...'):
-                    st.session_state.images_result = detect_images(project_name, exp_name, inputsize,
+                    st.session_state.images_result = detect_images(project_name, exp_name,
+                                                                   (st.session_state.inputsize_width,
+                                                                    st.session_state.inputsize_height),
                                                                    score_thresh, iou_thresh,
-                                                                   draw_score, draw_label,
+                                                                   draw_score, draw_label, line_width,
                                                                    rgb_input,
                                                                    st.session_state.images)
 
@@ -222,9 +213,11 @@ with tab_video:
                 st.write('\n')
                 st.write('\n')
                 with st.spinner('Running Detection with the given video...'):
-                    result_video_path = detect_video(project_name, exp_name, inputsize,
+                    result_video_path = detect_video(project_name, exp_name,
+                                                     (st.session_state.inputsize_width,
+                                                      st.session_state.inputsize_height),
                                                      score_thresh, iou_thresh,
-                                                     draw_score, draw_label,
+                                                     draw_score, draw_label, line_width,
                                                      rgb_input, frame_num,
                                                      st.session_state.video)
                 if not os.path.exists(result_video_path):

@@ -1,8 +1,8 @@
 import os
 import cv2
 import numpy as np
-from moviepy.editor import ImageSequenceClip
 import json
+import imageio.v2 as iio
 from safetensors.torch import save_file as safe_save_file
 from huggingface_hub import split_torch_state_dict_into_shards
 
@@ -13,7 +13,9 @@ from spdp.common.config import make_project_config, load_settings
 
 
 
-def draw_results(image, dets, catenames, colormaps, draw_label=False, draw_score=False, cate_ids=-1, rate=1):
+def draw_results(image, dets, catenames, colormaps,
+                 draw_label=False, draw_score=False,
+                 line_width=2, cate_ids=-1, rate=1):
     draw_image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR) if len(image.shape) == 2 else image
     target_num = 0
     draw_mask = True if len(list(dets.keys())) and len(dets[list(dets.keys())[0]][0]) == 6 else False
@@ -28,7 +30,7 @@ def draw_results(image, dets, catenames, colormaps, draw_label=False, draw_score
             x1, y1, x2, y2 = [int(v/rate) for v in [x1, y1, x2, y2]]
             catename = catenames[label]
             colormap = colormaps[label]
-            cv2.rectangle(draw_image, (x1, y1), (x2, y2), colormap, 2)
+            cv2.rectangle(draw_image, (x1, y1), (x2, y2), colormap, line_width)
             mask = dets[label][i][5] if len(dets[label][i]) == 6 else None
             if draw_mask and mask is not None:
                 image_mask = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST)
@@ -94,22 +96,33 @@ class Detector:
         if not os.path.exists(os.path.join(workdir, epxname, 'model.safetensors')):
             save_state_dict(self.predictor.model.state_dict(), os.path.join(workdir, epxname))
 
-    def predict_image(self, image, draw_label=True, draw_score=True, cate_ids=-1):
+    def predict_image(self, image, draw_label=True, draw_score=True, cate_ids=-1, line_width=2):
         dets = self.predictor.predict(image)[0]
         return draw_results(image, dets, self.catenames, self.colormaps,
-                            draw_label, draw_score, cate_ids)
+                            draw_label, draw_score, line_width)
 
 
     def predict_video(self, video, frame_num, draw_label=True, draw_score=True,
-                      cate_ids=-1, rgb_input=False, result_path=''):
+                      cate_ids=-1, line_width=2, rgb_input=False, result_path=''):
         vc = cv2.VideoCapture(video)
-        frames = [vc.read()[1] for _ in range(int(vc.get(7)))]
-        if frame_num > 0: frames = frames[:frame_num]
-        for i, frame in enumerate(frames):
+        video_writer = iio.get_writer(result_path,
+                                      format='ffmpeg',
+                                      mode='I',
+                                      fps=vc.get(5),
+                                      codec='libx264',
+                                      pixelformat='yuv420p',
+                                      macro_block_size=None)
+        video_frame_num = int(vc.get(7))
+        if frame_num > 0:
+            video_frame_num = min(frame_num, video_frame_num)
+        for i in range(video_frame_num):
+            frame = vc.read()[1]
             if rgb_input: frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             dets = self.predictor.predict(frame)[0]
-            frames[i] = cv2.cvtColor(draw_results(frame, dets, self.catenames, self.colormaps,
-                                    draw_label, draw_score, cate_ids), cv2.COLOR_BGR2RGB)
-        ImageSequenceClip(frames, vc.get(5)).write_videofile(result_path, codec='libx264', logger=None)
+            result = cv2.cvtColor(draw_results(frame, dets, self.catenames, self.colormaps,
+                                  draw_label, draw_score, line_width), cv2.COLOR_BGR2RGB)
+            video_writer.append_data(result)
+            if i == video_frame_num - 1: break
         vc.release()
+        video_writer.close()
 
