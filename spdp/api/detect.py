@@ -78,11 +78,11 @@ class Detector:
         self.cache_dir = cache_dir
         if not os.path.exists(self.cache_dir): os.mkdir(cache_dir)
 
-    def init(self, workdir, epxname, score_thresh=0.5, iou_thresh=0.5):
+    def init(self, workdir, epxname, score_thresh=0.5, iou_thresh=0.5, inputsize=None):
         settings = load_settings(os.path.join(workdir, '.prj'))
         train_settings = load_settings(os.path.join(workdir, epxname, '.train'))
         settings['model_type'] = train_settings['model_type']
-        settings['inputsize'] = train_settings['inputsize']
+        settings['inputsize'] = train_settings['inputsize'] if inputsize is None else inputsize
         settings['augmenters'] = train_settings['augmenters']
         config = make_project_config(settings, phase='test')
         self.catenames = [catename for catename in settings['category_info']]

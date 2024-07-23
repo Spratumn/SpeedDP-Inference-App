@@ -52,6 +52,11 @@ def get_exp_info(project_name, exp_name):
     }
 
 
+def get_trainsize(project_name, exp_name):
+    exp_settings = load_settings(os.path.join(PROJECT_DIR, project_name, exp_name, '.train'))
+    return exp_settings['inputsize']
+
+
 
 def convert_image(image:Image):
     buf = BytesIO()
@@ -60,9 +65,13 @@ def convert_image(image:Image):
     return byte_image
 
 
-def detect_images(prjname, expname, score_thresh, iou_thresh, draw_score, draw_label, rgb_input, images:Image):
+def detect_images(prjname, expname, inputsize,
+                  score_thresh, iou_thresh,
+                  draw_score, draw_label,
+                  rgb_input,
+                  images:Image):
     detector = Detector(TMP_DIR)
-    detector.init(os.path.join(PROJECT_DIR, prjname), expname, score_thresh, iou_thresh)
+    detector.init(os.path.join(PROJECT_DIR, prjname), expname, score_thresh, iou_thresh, inputsize)
     results = []
     for image in images:
         image_np = np.asarray(image)
@@ -75,13 +84,14 @@ def detect_images(prjname, expname, score_thresh, iou_thresh, draw_score, draw_l
     return results
 
 
-def detect_video(prjname, expname, score_thresh,
-                 iou_thresh, draw_score,
-                 draw_label, rgb_input,
+def detect_video(prjname, expname, inputsize,
+                 score_thresh, iou_thresh,
+                 draw_score, draw_label,
+                 rgb_input,
                  det_num, video):
     time_uid = str(time.time())
     detector = Detector(TMP_DIR)
-    detector.init(os.path.join(PROJECT_DIR, prjname), expname, score_thresh, iou_thresh)
+    detector.init(os.path.join(PROJECT_DIR, prjname), expname, score_thresh, iou_thresh, inputsize)
     cur_video_dir = os.path.join(TMP_DIR, time_uid)
     if not os.path.exists(cur_video_dir): os.mkdir(cur_video_dir)
     video_path = os.path.join(cur_video_dir, 'source.mp4')
